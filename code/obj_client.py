@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import socket
+
 # import hashlib
 
 IP_ADDRESS = "172.17.0.2"
-PORT = 12345
+PORT = 12350
 
 OBJECTS_DIR = "/root/objects/"
+WRITE_DIR = "/app/output/"
 
 # Function to calculate MD5 hash of a file
 # def calculate_md5(file_path):
@@ -17,7 +19,7 @@ OBJECTS_DIR = "/root/objects/"
 #     return md5.hexdigest()
 
 # Define the server address and port
-server_address = ('172.17.0.2', 12345)
+server_address = (IP_ADDRESS, PORT)
 
 # Create a TCP socket
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
@@ -43,12 +45,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 else:
                     received_data += left + mid
                     break
-    
+
             # Save received object to a file
-            with open(OBJECTS_DIR + f'received_{size}-{i}.obj', 'wb') as file:
+            with open(WRITE_DIR + f"received_{size}-{i}.obj", "wb") as file:
                 file.write(received_data)
             print(f"Received and saved {size} Object {i}")
-    
+
             # Receive and compare MD5 hash for object
             # received_md5 = client_socket.recv(32).decode()
             # calculated_md5 = calculate_md5(OBJECTS_DIR + f'received_{size}-{i}.obj')
