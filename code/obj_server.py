@@ -1,25 +1,37 @@
-# echo-server.py
+#!/usr/bin/env python3
 
-from pathlib import Path
 import socket
 
-HOST = "172.17.0.2"  # Standard loopback interface address (localhost)
-PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind((HOST, PORT))
-    s.listen()
-    conn, addr = s.accept()
-    with conn:
-        print(f"Connected by {addr}")
-        while True:
-            msg = conn.recv(10240)
-            if not msg:
-                break
-            filename = msg.decode()
-            path = filename
-            with open(path, "rb") as f:
-                data = f.read(10240)
+IP_ADDRESS = "172.17.0.2"
+PORT = 12345
+
+OBJECTS_DIR = "/root/objects/"
 
 
-            conn.sendall(data)
+# Create a TCP socket
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+    # Bind the socket to the server address
+    server_socket.bind((IP_ADDRESS, PORT))
+
+    # Listen for incoming connections
+    server_socket.listen(1)
+    print("Server is listening for incoming connections...")
+
+    # Accept a connection
+    connection, client_address = server_socket.accept()
+    print(f"Connection from {client_address}")
+
+    for i in range(10):
+        for size in "large", "small":
+            with open(OBJECTS_DIR + f'{size}-{i}.obj', 'rb') as file:
+                data = file.read()
+
+            # Calculate and send MD5 hash of large object
+            # with open(OBJECTS_DIR + f'large-{i}.obj.md5', 'rb') as md5_file:
+            #     md5 = md5_file.read()
+
+            connection.sendall(data)
+            # connection.sendall(md5)
+            print(f"Sent {size} Object {i} with precomputed MD5 hash")
+            
