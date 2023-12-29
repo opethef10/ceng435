@@ -1,3 +1,5 @@
 .idea/
 .vscode/
 *.obj
+*.md5
+*.sh
