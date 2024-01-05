@@ -40,6 +40,7 @@ def receive_and_save_objects(client_socket, objects_dir):
     # try:
         received_data = b""
         left, mid, right = b"", b"", b""
+        received_dict = {}
 
 
         while True:
@@ -47,13 +48,20 @@ def receive_and_save_objects(client_socket, objects_dir):
             sequence_number, chunk = chunk.decode().split(HEADER_SEPARATOR)
             chunk = chunk.encode()
             print("receive", sequence_number, len(chunk))
+            if sequence_number not in received_dict:
+                received_dict[sequence_number] = chunk
             send_acknowledgment(client_socket, sequence_number)
-            received_data += chunk
-            # continue
-            if received_data.count(b"=\n") == 20: #20
+
+            if b"".join(received_dict.values()).count(b"=\n") == 20:
+            # received_data += chunk
+            # # continue
+            # if received_data.count(b"=\n") == 20: #20
                 print("break") # , size, i)
                 completed = True
                 break
+
+
+        received_data = b"".join(received_dict[key] for key in sorted(received_dict.keys()))
         print(len(received_data))
 
         file_datas = [file + b"=\n" for file in received_data.split(b"=\n")][:-1]
