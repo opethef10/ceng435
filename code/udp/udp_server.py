@@ -20,7 +20,6 @@ HEADER_SEPARATOR = ":"
 TIMEOUT = 0.05
 
 
-
 def send_data_with_reliability(server_socket, sequence_number, data, client_address):
     print("send", sequence_number, len(data))
     server_socket.sendto(
@@ -34,18 +33,22 @@ window = {}
 sent_not_acked = set()
 ack_list = []
 acked_table = {}
+counter = 0
 
 
 def send_file(server_socket, file_path, client_address):
     with open(file_path, "rb") as file:
         global sequence_number
-
+        global counter
+        not_acked_counter = 0
+        chunk = b''
         while True:
             while len(window) < WINDOW_SIZE:
                 chunk = file.read(BUFFER_SIZE - HEADER_SIZE - 1)
                 # time.sleep(0.001)
                 if not chunk:
                     break
+                not_acked_counter = 0
                 window[sequence_number] = chunk
                 sent_not_acked.add(sequence_number)
                 send_data_with_reliability(
@@ -56,6 +59,8 @@ def send_file(server_socket, file_path, client_address):
 
             ack_numbers = receive_acknowledgments(server_socket, window)
             sent_not_acked.difference_update(ack_numbers)
+            
+            print("ack", ack_numbers)
 
             # ack_list.extend(ack_numbers)
             # filtered_list = [
@@ -70,9 +75,9 @@ def send_file(server_socket, file_path, client_address):
 
             # print("filtered_list", filtered_list)
             # print("ack_table", acked_table)
-            print("ack", ack_numbers)
-            print("window", window.keys())
-            print("sent_not_acked", sent_not_acked)
+            # print("ack", ack_numbers)
+            # print("window", window.keys())
+            # print("sent_not_acked", sent_not_acked)
 
             for ack_number in ack_numbers:
                 # if ack_number not in window and ack_number in filtered_list:
@@ -87,10 +92,15 @@ def send_file(server_socket, file_path, client_address):
                 break
 
             for seq in sent_not_acked:
-                print("resend", seq)
-                send_data_with_reliability(
-                    server_socket, seq, window[seq], client_address
-                )
+                if not_acked_counter <= 10:
+                    print("resend", seq)
+                    counter += 1
+                    send_data_with_reliability(
+                        server_socket, seq, window[seq], client_address
+                    )
+                    not_acked_counter += 1
+                else:
+                    return
 
             # time.sleep(TIMEOUT)
 
@@ -126,7 +136,7 @@ def main():
         # connection, client_address = server_socket.accept()
         # print(f"Connection from {client_address}")
 
-        for i in range(10):
+        for i in range(1):
             for size in "large", "small":
                 file_path = os.path.join(OBJECTS_DIR, f"{size}-{i}.obj")
 
@@ -138,6 +148,8 @@ def main():
 
         end_time = time.time()
         elapsed_time = end_time - start_time
+
+        print(f"Counter: {counter}")
         # with open(EXPERIMENT_LOG_FILE, "a") as log_file:
         #     log_file.write(f"Experiment x: {elapsed_time} seconds\n")
 
