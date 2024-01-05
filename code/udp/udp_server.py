@@ -7,7 +7,64 @@ PORT = 45404
 OBJECTS_DIR = "/root/objects/"
 EXPERIMENT_LOG_FILE = "server_experiment_log.txt"
 
+WINDOW_SIZE = 5
+
 BUFFER_SIZE = 1024  # Adjust the buffer size according to your needs
+HEADER_SIZE = 4
+HEADER_SEPARATOR = ":"
+TIMEOUT = 0.1
+
+def send_data_with_reliability(server_socket, sequence_number, data, client_address):
+    print("send", sequence_number, len(data))
+    server_socket.sendto(f"{sequence_number:04}{HEADER_SEPARATOR}{data.decode()}".encode(), client_address)
+
+
+def send_file(server_socket, file_path, client_address):
+    with open(file_path, "rb") as file:
+        sequence_number = 0
+        window = {}
+        sent_not_acked = set()
+
+        while True:
+            while len(window) < WINDOW_SIZE:
+                chunk = file.read(BUFFER_SIZE - HEADER_SIZE)
+                time.sleep(0.001)
+                if not chunk:
+                    break
+                window[sequence_number] = chunk
+                sent_not_acked.add(sequence_number)
+                sequence_number += 1
+                send_data_with_reliability(server_socket, sequence_number, chunk, client_address)
+                # server_socket.sendto(f"{sequence_number:04}{HEADER_SEPARATOR}{chunk.decode()}".encode(), client_address)
+
+            ack_numbers = receive_acknowledgments(server_socket, window)
+            sent_not_acked.difference_update(ack_numbers)
+
+            for ack_number in ack_numbers:
+                del window[ack_number - 1]
+
+            if not window and not chunk:
+                break
+
+            for seq in sent_not_acked:
+                send_data_with_reliability(server_socket, seq, window[seq], client_address)
+
+            time.sleep(TIMEOUT)
+
+def receive_acknowledgments(server_socket, window):
+    ack_numbers = set()
+    server_socket.settimeout(TIMEOUT)  # Set a timeout for receiving acknowledgments
+
+    try:
+        while True:
+            data, _ = server_socket.recvfrom(HEADER_SIZE)
+            ack_numbers.add(int(data.decode()))
+
+    except socket.timeout:
+        pass
+
+    return ack_numbers
+
 
 def main():
     # try:
@@ -32,17 +89,7 @@ def main():
                     if not os.path.exists(file_path):
                         print(f"Error: File not found - {file_path}")
                         continue
-
-                    with open(file_path, "rb") as file:
-                        while True:
-                            chunk = file.read(BUFFER_SIZE)
-                            if not chunk:
-                                break
-                            server_socket.sendto(chunk, client_address)
-                    # with open(file_path, "rb") as file:
-                    #     data = file.read()
-                    #
-                    # server_socket.sendto(data, client_address)
+                    send_file(server_socket, file_path, client_address)
                     print(f"Sent {size} Object {i}")
 
             end_time = time.time()

@@ -5,7 +5,36 @@ SERVER_IP_ADDRESS = "172.17.0.2"
 SERVER_PORT = 45404
 OBJECTS_DIR = "/root/objects/"
 
-BUFFER_SIZE = 2048  # Adjust the buffer size according to your needs
+WINDOW_SIZE = 5
+
+BUFFER_SIZE = 1024  # Adjust the buffer size according to your needs
+HEADER_SIZE = 4
+HEADER_SEPARATOR = ":"
+
+def receive_data_with_reliability(client_socket, expected_sequence_number):
+    while True:
+        data, _ = client_socket.recvfrom(BUFFER_SIZE)
+        sequence_number, chunk = data.decode().split(HEADER_SEPARATOR)
+
+        if int(sequence_number) == expected_sequence_number:
+            return chunk, expected_sequence_number
+        else:
+            print(f"Received out-of-order packet. Expected: {expected_sequence_number}, Received: {sequence_number}")
+
+def receive_file(client_socket):
+    expected_sequence_number = 0
+
+    while True:
+        chunk, sequence_number = receive_data_with_reliability(client_socket, expected_sequence_number)
+
+        with open(OBJECTS_DIR + f"received_{sequence_number}.obj", "ab") as file:
+            file.write(chunk)
+
+        expected_sequence_number += 1
+
+def send_acknowledgment(client_socket, ack_number):
+    client_socket.sendto(f"{ack_number:04}".encode(), (SERVER_IP_ADDRESS, SERVER_PORT))
+
 
 def receive_and_save_objects(client_socket, objects_dir):
     # try:
@@ -18,6 +47,11 @@ def receive_and_save_objects(client_socket, objects_dir):
                 received_data = right
                 while True:
                     chunk, _ = client_socket.recvfrom(1024)
+                    sequence_number, chunk = chunk.decode().split(HEADER_SEPARATOR)
+                    chunk = chunk.encode()
+                    print("receive", sequence_number, len(chunk))
+                    send_acknowledgment(client_socket, sequence_number)
+                    continue
                     if not chunk:
                         print("break", size, i)
                         completed = True
