@@ -20,6 +20,7 @@ HEADER_SEPARATOR = ":"
 TIMEOUT = 0.05
 
 
+
 def send_data_with_reliability(server_socket, sequence_number, data, client_address):
     print("send", sequence_number, len(data))
     server_socket.sendto(
@@ -32,6 +33,7 @@ sequence_number = 0
 window = {}
 sent_not_acked = set()
 ack_list = []
+acked_table = {}
 
 
 def send_file(server_socket, file_path, client_address):
@@ -55,20 +57,31 @@ def send_file(server_socket, file_path, client_address):
             ack_numbers = receive_acknowledgments(server_socket, window)
             sent_not_acked.difference_update(ack_numbers)
 
-            ack_list.extend(ack_numbers)
-            filtered_list = [
-                element for element in set(ack_list) if ack_list.count(element) > 1
-            ]
+            # ack_list.extend(ack_numbers)
+            # filtered_list = [
+            #     element for element in set(ack_list) if ack_list.count(element) > 1
+            # ]
 
-            print("filtered_list", filtered_list)
+            for ack in ack_numbers:
+                if (ack) in acked_table:
+                    acked_table[(ack)] = 2
+                else:
+                    acked_table[(ack)] = 1
+
+            # print("filtered_list", filtered_list)
+            # print("ack_table", acked_table)
             print("ack", ack_numbers)
             print("window", window.keys())
             print("sent_not_acked", sent_not_acked)
 
             for ack_number in ack_numbers:
-                if ack_number not in window and ack_number in filtered_list:
+                # if ack_number not in window and ack_number in filtered_list:
+                #     continue
+                if ack_number not in window and acked_table[(ack_number)] > 1:
                     continue
                 del window[ack_number]
+                # if ack_number not in window and ack_number in acked_table:
+                #     continue
 
             if not window and not chunk:
                 break
