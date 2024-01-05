@@ -41,41 +41,85 @@ def receive_and_save_objects(client_socket, objects_dir):
         received_data = b""
         left, mid, right = b"", b"", b""
 
-        for i in range(10):
-            completed = False
-            for size in "large", "small":
-                received_data = right
-                while True:
-                    chunk, _ = client_socket.recvfrom(1024)
-                    sequence_number, chunk = chunk.decode().split(HEADER_SEPARATOR)
-                    chunk = chunk.encode()
-                    print("receive", sequence_number, len(chunk))
-                    send_acknowledgment(client_socket, sequence_number)
-                    continue
-                    if not chunk:
-                        print("break", size, i)
-                        completed = True
-                        break
-                    left, mid, right = chunk.partition(b"=\n")
-                    if not mid:
-                        received_data += chunk
-                    else:
-                        received_data += left + mid
-                        print(size,i,len(received_data))
-                        break
 
-                if not os.path.exists(objects_dir):
-                    os.makedirs(objects_dir)
+        while True:
+            chunk, _ = client_socket.recvfrom(1024)
+            sequence_number, chunk = chunk.decode().split(HEADER_SEPARATOR)
+            chunk = chunk.encode()
+            print("receive", sequence_number, len(chunk))
+            send_acknowledgment(client_socket, sequence_number)
+            received_data += chunk
+            # continue
+            if received_data.count(b"=\n") == 20: #20
+                print("break") # , size, i)
+                completed = True
+                break
+        print(len(received_data))
 
-                file_path = os.path.join(objects_dir, f"received_{size}-{i}.obj")
+        file_datas = [file + b"=\n" for file in received_data.split(b"=\n")][:-1]
 
-                try:
-                    with open(file_path, "wb") as file:
-                        file.write(received_data)
-                    print(f"Received and saved {size} Object {i} to {file_path}")
+        for idx, file_data in enumerate(file_datas):
+            file_idx, size_idx = divmod(idx, 2)
+            size = "small" if size_idx else "large"
 
-                except Exception as e:
-                    print(f"Error saving {size} Object {i}: {e}")
+            if not os.path.exists(objects_dir):
+                os.makedirs(objects_dir)
+
+            file_path = os.path.join(objects_dir, f"received_{size}-{file_idx}.obj")
+
+            try:
+                with open(file_path, "wb") as file:
+                    file.write(file_data)
+                print(f"Received and saved {size} Object {file_idx} to {file_path}")
+
+            except Exception as e:
+                print(f"Error saving {size} Object {file_idx}: {e}")
+
+
+            # left, mid, right = chunk.partition(b"=\n")
+            # if not mid:
+            #     received_data += chunk
+            # else:
+            #     received_data += left + mid
+            #     print(size, i, len(received_data))
+            #     break
+
+
+        # for i in range(10):
+        #     completed = False
+        #     for size in "large", "small":
+        #         received_data = right
+        #         while True:
+        #             chunk, _ = client_socket.recvfrom(1024)
+        #             sequence_number, chunk = chunk.decode().split(HEADER_SEPARATOR)
+        #             chunk = chunk.encode()
+        #             print("receive", sequence_number, len(chunk))
+        #             send_acknowledgment(client_socket, sequence_number)
+        #             # continue
+        #             if not chunk:
+        #                 print("break", size, i)
+        #                 completed = True
+        #                 break
+        #             left, mid, right = chunk.partition(b"=\n")
+        #             if not mid:
+        #                 received_data += chunk
+        #             else:
+        #                 received_data += left + mid
+        #                 print(size,i,len(received_data))
+        #                 break
+        #
+        #         if not os.path.exists(objects_dir):
+        #             os.makedirs(objects_dir)
+        #
+        #         file_path = os.path.join(objects_dir, f"received_{size}-{i}.obj")
+        #
+        #         try:
+        #             with open(file_path, "wb") as file:
+        #                 file.write(received_data)
+        #             print(f"Received and saved {size} Object {i} to {file_path}")
+        #
+        #         except Exception as e:
+        #             print(f"Error saving {size} Object {i}: {e}")
 
     # except Exception as e:
     #     print(f"An error occurred: {e}")
