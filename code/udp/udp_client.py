@@ -59,12 +59,16 @@ def receive_and_save_objects(client_socket, objects_dir):
 
     while True:
         message, _ = client_socket.recvfrom(1024)
-        print(message)
         sequence_number = int(message[:SEQUENCE_NUMBER_SIZE])
         checksum = message[SEQUENCE_NUMBER_SIZE: SEQUENCE_NUMBER_SIZE + CHECKSUM_SIZE]
         chunk = message[SEQUENCE_NUMBER_SIZE + CHECKSUM_SIZE:]
         # sequence_number, chunk, checksum = message.split(HEADER_SEPARATOR.encode())
-        
+
+        client_checksum = calculate_checksum(chunk)
+
+        if not client_checksum == checksum:
+            print("corrupted", sequence_number)
+            continue
         
         # sequence_number = sequence_number.decode()
         # chunk = chunk.encode()
