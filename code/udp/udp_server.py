@@ -1,6 +1,7 @@
 import socket
 import os
 import time
+import hashlib
 
 IP_ADDRESS = "172.17.0.2"
 PORT = 45404
@@ -15,15 +16,31 @@ EXPERIMENT_LOG_FILE = "server_experiment_log.txt"
 WINDOW_SIZE = 5
 
 BUFFER_SIZE = 1024  # Adjust the buffer size according to your needs
-HEADER_SIZE = 4
+CHECKSUM_SIZE = 16
+SEQUENCE_NUMBER_SIZE = 4
 HEADER_SEPARATOR = ":"
 TIMEOUT = 0.05
 
 
+def calculate_checksum(data):
+    md5_hash = hashlib.md5()
+    md5_hash.update(data)
+    return md5_hash.digest()
+
 def send_data_with_reliability(server_socket, sequence_number, data, client_address):
     print("send", sequence_number, len(data))
+    checksum = calculate_checksum(data)
+    message = (
+            f"{sequence_number:04}".encode() +
+            # HEADER_SEPARATOR.encode() +
+            checksum +
+            data
+            # HEADER_SEPARATOR.encode() +
+            # checksum
+    )
+    # f"{sequence_number:04}{HEADER_SEPARATOR}{data.decode()}".encode()
     server_socket.sendto(
-        f"{sequence_number:04}{HEADER_SEPARATOR}{data.decode()}".encode(),
+        message,
         client_address,
     )
 
@@ -44,7 +61,7 @@ def send_file(server_socket, file_path, client_address):
         chunk = b''
         while True:
             while len(window) < WINDOW_SIZE:
-                chunk = file.read(BUFFER_SIZE - HEADER_SIZE - 1)
+                chunk = file.read(BUFFER_SIZE - SEQUENCE_NUMBER_SIZE - CHECKSUM_SIZE)
                 # time.sleep(0.001)
                 if not chunk:
                     break
@@ -111,7 +128,7 @@ def receive_acknowledgments(server_socket, window):
 
     try:
         while True:
-            data, _ = server_socket.recvfrom(HEADER_SIZE)
+            data, _ = server_socket.recvfrom(SEQUENCE_NUMBER_SIZE)
             ack_numbers.add(int(data.decode()))
 
     except socket.timeout:

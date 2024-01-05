@@ -1,4 +1,4 @@
-from re import I
+import hashlib
 import socket
 import os
 
@@ -9,8 +9,15 @@ OBJECTS_DIR = "/app/udp/objects/"
 WINDOW_SIZE = 5
 
 BUFFER_SIZE = 1024  # Adjust the buffer size according to your needs
-HEADER_SIZE = 4
+SEQUENCE_NUMBER_SIZE = 4
+CHECKSUM_SIZE = 16
 HEADER_SEPARATOR = ":"
+
+
+def calculate_checksum(data):
+    md5_hash = hashlib.md5()
+    md5_hash.update(data)
+    return md5_hash.digest()
 
 
 def receive_data_with_reliability(client_socket, expected_sequence_number):
@@ -51,12 +58,16 @@ def receive_and_save_objects(client_socket, objects_dir):
     received_dict = {}
 
     while True:
-        chunk, _ = client_socket.recvfrom(1024)
-        sequence_number, chunk, checksum = chunk.decode().split(HEADER_SEPARATOR)
+        message, _ = client_socket.recvfrom(1024)
+        print(message)
+        sequence_number = int(message[:SEQUENCE_NUMBER_SIZE])
+        checksum = message[SEQUENCE_NUMBER_SIZE: SEQUENCE_NUMBER_SIZE + CHECKSUM_SIZE]
+        chunk = message[SEQUENCE_NUMBER_SIZE + CHECKSUM_SIZE:]
+        # sequence_number, chunk, checksum = message.split(HEADER_SEPARATOR.encode())
         
         
-        
-        chunk = chunk.encode()
+        # sequence_number = sequence_number.decode()
+        # chunk = chunk.encode()
         print("receive", sequence_number, len(chunk))
         if sequence_number not in received_dict:
             received_dict[sequence_number] = chunk
